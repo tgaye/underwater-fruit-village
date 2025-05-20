@@ -1,0 +1,573 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Underwater Fruit Village</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.8.0/lib/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0a192f;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            z-index: 100;
+        }
+        #toggleControls {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            background: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 100;
+        }
+        .control-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+    </style>
+
+<base target="_self">
+</head>
+<body>
+    <div id="controls">
+        <div class="control-group">
+            <label for="lighting">Lighting:</label>
+            <select id="lighting">
+                <option value="day">Daytime</option>
+                <option value="sunset">Sunset</option>
+                <option value="night">Bioluminescent Night</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="fishCount">Fish Count:</label>
+            <input type="range" id="fishCount" min="1" max="30" value="10">
+        </div>
+        <div class="control-group">
+            <label for="bubbleCount">Bubble Count:</label>
+            <input type="range" id="bubbleCount" min="5" max="50" value="20">
+        </div>
+    </div>
+    <button id="toggleControls">Toggle Controls</button>
+
+    <script>
+        const underwaterSketch = (p) => {
+            // Color palettes
+            const palettes = {
+                day: {
+                    water: p.color(10, 80, 120, 50),
+                    sand: p.color(240, 230, 180),
+                    highlight: p.color(255, 255, 200)
+                },
+                sunset: {
+                    water: p.color(200, 60, 40, 60),
+                    sand: p.color(220, 180, 120),
+                    highlight: p.color(255, 200, 150)
+                },
+                night: {
+                    water: p.color(5, 10, 40, 80),
+                    sand: p.color(80, 70, 50),
+                    highlight: p.color(100, 200, 255)
+                }
+            };
+
+            // Game elements
+            let houses = [];
+            let fish = [];
+            let bubbles = [];
+            let jellyfish = [];
+            let currentPalette = palettes.day;
+            let sandHeight = 100;
+            let showControls = true;
+
+            // DOM elements
+            let lightingSelect, fishSlider, bubbleSlider, toggleBtn;
+
+            p.setup = () => {
+                p.createCanvas(p.windowWidth, p.windowHeight);
+                p.colorMode(p.HSB, 360, 100, 100, 1);
+                p.ellipseMode(p.CENTER);
+                p.rectMode(p.CENTER);
+
+                // Initialize DOM elements
+                lightingSelect = p.select('#lighting');
+                fishSlider = p.select('#fishCount');
+                bubbleSlider = p.select('#bubbleCount');
+                toggleBtn = p.select('#toggleControls');
+
+                // Set up event listeners
+                lightingSelect.changed(changeLighting);
+                toggleBtn.mousePressed(toggleControls);
+
+                // Create initial village
+                createVillage();
+                createInitialFish(10);
+                createInitialBubbles(20);
+                createJellyfish(3);
+
+
+            };
+
+            function toggleControls() {
+                showControls = !showControls;
+                p.select('#controls').style('display', showControls ? 'block' : 'none');
+            }
+
+            function changeLighting() {
+                const val = lightingSelect.value();
+                currentPalette = palettes[val] || palettes.day;
+            }
+
+            function createVillage() {
+                houses = [];
+                const houseCount = 8;
+                const spacing = p.width / (houseCount + 1);
+
+                for (let i = 0; i < houseCount; i++) {
+                    const x = spacing * (i + 1);
+                    const y = p.height - sandHeight - 50;
+                    const type = p.floor(p.random(4)); // 0-3 for different fruit types
+
+                    houses.push({
+                        x: x,
+                        y: y,
+                        type: type,
+                        size: p.random(60, 100),
+                        wobble: 0,
+                        hover: false
+                    });
+                }
+            }
+
+            function createInitialFish(count) {
+                fish = [];
+                for (let i = 0; i < count; i++) {
+                    addFish();
+                }
+            }
+
+            function createInitialBubbles(count) {
+                bubbles = [];
+                for (let i = 0; i < count; i++) {
+                    addBubble();
+                }
+            }
+
+            function createJellyfish(count) {
+                jellyfish = [];
+                for (let i = 0; i < count; i++) {
+                    jellyfish.push({
+                        x: p.random(p.width),
+                        y: p.random(p.height * 0.5),
+                        size: p.random(30, 60),
+                        speed: p.random(0.5, 1.5),
+                        tentacles: p.floor(p.random(4, 8)),
+                        angle: 0,
+                        isDragged: false,
+                        dragOffsetX: 0,
+                        dragOffsetY: 0
+                    });
+                }
+            }
+
+            function addFish() {
+                if (fish.length >= 30) return; // Limit fish count
+
+                const size = p.random(20, 40);
+                fish.push({
+                    x: p.random(p.width),
+                    y: p.random(p.height - sandHeight - 100, p.height - sandHeight - 20),
+                    size: size,
+                    speed: p.random(1, 3),
+                    direction: p.random([-1, 1]),
+                    color: p.color(p.random(0, 60), p.random(70, 100), p.random(70, 100)),
+                    wiggle: 0,
+                    wiggleSpeed: p.random(0.05, 0.1),
+                    wiggleAmount: p.random(2, 5)
+                });
+            }
+
+            function addBubble() {
+                if (bubbles.length >= 50) return; // Limit bubble count
+
+                const size = p.random(5, 15);
+                bubbles.push({
+                    x: p.random(p.width),
+                    y: p.height - sandHeight + size,
+                    size: size,
+                    speed: p.random(1, 3),
+                    wobble: p.random(p.TWO_PI),
+                    wobbleSpeed: p.random(0.02, 0.05),
+                    wobbleAmount: p.random(2, 5)
+                });
+            }
+
+            p.draw = () => {
+                // Background with gradient
+                drawWaterBackground();
+
+                // Draw sand bottom
+                drawSand();
+
+                // Update and draw all elements
+                updateHouses();
+                updateFish();
+                updateBubbles();
+                updateJellyfish();
+
+                // Draw water surface effect
+                drawWaterSurface();
+            };
+
+            function drawWaterBackground() {
+                // Water gradient
+                const topColor = currentPalette.water;
+                const bottomColor = p.lerpColor(currentPalette.water, p.color(0, 0, 0), 0.3);
+
+                for (let y = 0; y < p.height - sandHeight; y++) {
+                    const inter = p.map(y, 0, p.height - sandHeight, 0, 1);
+                    const c = p.lerpColor(topColor, bottomColor, inter);
+                    p.stroke(c);
+                    p.line(0, y, p.width, y);
+                }
+            }
+
+            function drawSand() {
+                p.noStroke();
+                p.fill(currentPalette.sand);
+                p.beginShape();
+                p.vertex(0, p.height);
+                
+                // Wavy sand line
+                for (let x = 0; x <= p.width; x += 10) {
+                    const y = p.height - sandHeight + p.noise(x * 0.01, p.frameCount * 0.01) * 20;
+                    p.vertex(x, y);
+                }
+                
+                p.vertex(p.width, p.height);
+                p.endShape(p.CLOSE);
+            }
+
+            function updateHouses() {
+                for (let house of houses) {
+                    // Wobble effect when hovered
+                    if (house.hover) {
+                        house.wobble = p.sin(p.frameCount * 0.1) * 3;
+                    } else {
+                        house.wobble = p.lerp(house.wobble, 0, 0.1);
+                    }
+
+                    p.push();
+                    p.translate(house.x, house.y + house.wobble);
+                    
+                    // Draw different fruit houses
+                    switch (house.type) {
+                        case 0: // Watermelon
+                            p.fill(80, 80, 50);
+                            p.ellipse(0, 0, house.size, house.size * 0.8);
+                            p.fill(0, 80, 30);
+                            p.ellipse(0, 0, house.size * 0.9, house.size * 0.7);
+                            p.stroke(0, 0, 20);
+                            p.strokeWeight(2);
+                            p.noFill();
+                            for (let i = 0; i < 5; i++) {
+                                p.ellipse(0, p.map(i, 0, 4, -house.size*0.3, house.size*0.3), house.size*0.7, house.size*0.1);
+                            }
+                            break;
+                            
+                        case 1: // Pineapple
+                            p.fill(50, 80, 70);
+                            p.rect(0, 0, house.size * 0.7, house.size * 0.9, 10);
+                            p.fill(60, 90, 90);
+                            for (let i = -2; i <= 2; i++) {
+                                for (let j = -3; j <= 3; j++) {
+                                    if ((i + j) % 2 === 0) {
+                                        p.ellipse(
+                                            j * house.size * 0.15,
+                                            i * house.size * 0.15,
+                                            house.size * 0.1,
+                                            house.size * 0.1
+                                        );
+                                    }
+                                }
+                            }
+                            // Pineapple leaves
+                            p.fill(100, 80, 60);
+                            for (let i = 0; i < 8; i++) {
+                                const angle = p.map(i, 0, 8, 0, p.TWO_PI);
+                                p.push();
+                                p.translate(p.cos(angle) * house.size * 0.3, -house.size * 0.5 + p.sin(angle) * 10);
+                                p.rotate(angle);
+                                p.triangle(
+                                    0, 0,
+                                    -house.size * 0.2, -house.size * 0.3,
+                                    house.size * 0.2, -house.size * 0.3
+                                );
+                                p.pop();
+                            }
+                            break;
+                            
+                        case 2: // Banana
+                            p.fill(50, 80, 80);
+                            p.beginShape();
+                            p.vertex(-house.size * 0.3, house.size * 0.2);
+                            p.vertex(0, -house.size * 0.3);
+                            p.vertex(house.size * 0.3, house.size * 0.2);
+                            p.vertex(house.size * 0.1, house.size * 0.4);
+                            p.vertex(-house.size * 0.1, house.size * 0.4);
+                            p.endShape(p.CLOSE);
+                            p.fill(40, 80, 90);
+                            p.beginShape();
+                            p.vertex(-house.size * 0.25, house.size * 0.25);
+                            p.vertex(-house.size * 0.05, -house.size * 0.2);
+                            p.vertex(house.size * 0.25, house.size * 0.25);
+                            p.vertex(house.size * 0.05, house.size * 0.35);
+                            p.vertex(-house.size * 0.05, house.size * 0.35);
+                            p.endShape(p.CLOSE);
+                            break;
+                            
+                        case 3: // Berry cluster
+                            const berryCount = 5;
+                            for (let i = 0; i < berryCount; i++) {
+                                const angle = p.map(i, 0, berryCount, 0, p.TWO_PI);
+                                const berrySize = house.size * 0.3;
+                                const x = p.cos(angle) * house.size * 0.3;
+                                const y = p.sin(angle) * house.size * 0.3;
+                                p.fill(p.random(330, 360), 80, 70);
+                                p.ellipse(x, y, berrySize);
+                                p.fill(120, 30, 100);
+                                p.ellipse(x - berrySize*0.1, y - berrySize*0.1, berrySize*0.1);
+                            }
+                            break;
+                    }
+                    
+                    // Glow effect when hovered
+                    if (house.hover) {
+                        p.blendMode(p.SCREEN);
+                        p.noStroke();
+                        p.fill(currentPalette.highlight);
+                        p.ellipse(0, 0, house.size * 1.5, house.size * 1.3);
+                        p.blendMode(p.BLEND);
+                    }
+                    
+                    p.pop();
+                }
+            }
+
+            function updateFish() {
+                // Adjust fish count based on slider
+                const targetFishCount = parseInt(fishSlider.value());
+                while (fish.length < targetFishCount) addFish();
+                while (fish.length > targetFishCount && fish.length > 0) fish.pop();
+
+                for (let i = fish.length - 1; i >= 0; i--) {
+                    const f = fish[i];
+                    
+                    // Update position
+                    f.x += f.speed * f.direction;
+                    f.wiggle += f.wiggleSpeed;
+                    f.y += p.sin(f.wiggle) * f.wiggleAmount;
+                    
+                    // Reverse direction at edges
+                    if (f.x < -f.size || f.x > p.width + f.size) {
+                        f.direction *= -1;
+                    }
+                    
+                    // Draw fish
+                    p.push();
+                    p.translate(f.x, f.y);
+                    
+                    // Flip based on direction
+                    if (f.direction < 0) {
+                        p.scale(-1, 1);
+                    }
+                    
+                    // Body
+                    p.noStroke();
+                    p.fill(f.color);
+                    p.ellipse(0, 0, f.size, f.size * 0.6);
+                    
+                    // Tail
+                    p.beginShape();
+                    p.vertex(f.size * 0.4, 0);
+                    p.vertex(f.size * 0.7, -f.size * 0.3);
+                    p.vertex(f.size * 0.7, f.size * 0.3);
+                    p.endShape(p.CLOSE);
+                    
+                    // Eye
+                    p.fill(0, 0, 100);
+                    p.ellipse(-f.size * 0.2, -f.size * 0.1, f.size * 0.1);
+                    p.fill(0, 0, 0);
+                    p.ellipse(-f.size * 0.2, -f.size * 0.1, f.size * 0.05);
+                    
+                    p.pop();
+                }
+            }
+
+            function updateBubbles() {
+                // Adjust bubble count based on slider
+                const targetBubbleCount = parseInt(bubbleSlider.value());
+                while (bubbles.length < targetBubbleCount) addBubble();
+                while (bubbles.length > targetBubbleCount && bubbles.length > 0) bubbles.pop();
+
+                for (let i = bubbles.length - 1; i >= 0; i--) {
+                    const b = bubbles[i];
+                    
+                    // Update position
+                    b.y -= b.speed;
+                    b.wobble += b.wobbleSpeed;
+                    b.x += p.sin(b.wobble) * b.wobbleAmount;
+                    
+                    // Remove bubbles that reach top
+                    if (b.y < -b.size) {
+                        bubbles.splice(i, 1);
+                        addBubble();
+                        continue;
+                    }
+                    
+                    // Draw bubble
+                    p.noFill();
+                    p.stroke(200, 50, 100, 0.5);
+                    p.strokeWeight(1);
+                    p.ellipse(b.x, b.y, b.size);
+                    
+                    // Bubble highlight
+                    p.noStroke();
+                    p.fill(200, 30, 100, 0.3);
+                    p.ellipse(b.x - b.size * 0.2, b.y - b.size * 0.2, b.size * 0.3);
+                }
+            }
+
+            function updateJellyfish() {
+                for (let j of jellyfish) {
+                    if (!j.isDragged) {
+                        // Natural movement
+                        j.y += j.speed;
+                        j.angle = p.sin(p.frameCount * 0.05) * 0.2;
+                        
+                        // Wrap around screen
+                        if (j.y > p.height + j.size) {
+                            j.y = -j.size;
+                            j.x = p.random(p.width);
+                        }
+                    } else {
+                        // Follow mouse when dragged
+                        j.x = p.mouseX + j.dragOffsetX;
+                        j.y = p.mouseY + j.dragOffsetY;
+                    }
+                    
+                    // Draw jellyfish
+                    p.push();
+                    p.translate(j.x, j.y);
+                    p.rotate(j.angle);
+                    
+                    // Bell
+                    p.noStroke();
+                    p.fill(300, 50, 100, 0.8);
+                    p.ellipse(0, 0, j.size, j.size * 0.7);
+                    
+                    // Tentacles
+                    p.stroke(300, 70, 80, 0.6);
+                    p.strokeWeight(2);
+                    p.noFill();
+                    for (let i = 0; i < j.tentacles; i++) {
+                        const angle = p.map(i, 0, j.tentacles, 0, p.TWO_PI);
+                        const x1 = p.cos(angle) * j.size * 0.4;
+                        const y1 = p.sin(angle) * j.size * 0.3;
+                        const y2 = y1 + j.size * p.random(0.8, 1.5);
+                        
+                        p.beginShape();
+                        p.vertex(x1, y1);
+                        p.bezierVertex(
+                            x1 + p.random(-j.size * 0.1, j.size * 0.1), y1 + j.size * 0.2,
+                            x1 + p.random(-j.size * 0.1, j.size * 0.1), y1 + j.size * 0.5,
+                            x1, y2
+                        );
+                        p.endShape();
+                    }
+                    
+                    p.pop();
+                }
+            }
+
+            function drawWaterSurface() {
+                p.noFill();
+                p.stroke(200, 50, 100, 0.3);
+                p.strokeWeight(1);
+                
+                for (let x = 0; x < p.width; x += 20) {
+                    const y = p.noise(x * 0.01, p.frameCount * 0.01) * 20;
+                    p.line(x, y, x + 20, y + p.random(-5, 5));
+                }
+            }
+
+            p.mousePressed = () => {
+                // Check if clicking on a jellyfish to drag it
+                for (let j of jellyfish) {
+                    const d = p.dist(p.mouseX, p.mouseY, j.x, j.y);
+                    if (d < j.size * 0.6) {
+                        j.isDragged = true;
+                        j.dragOffsetX = j.x - p.mouseX;
+                        j.dragOffsetY = j.y - p.mouseY;
+                        return;
+                    }
+                }
+                
+                // Otherwise add a new fish where clicked
+                fish.push({
+                    x: p.mouseX,
+                    y: p.mouseY,
+                    size: p.random(20, 40),
+                    speed: p.random(1, 3),
+                    direction: p.random([-1, 1]),
+                    color: p.color(p.random(0, 60), p.random(70, 100), p.random(70, 100)),
+                    wiggle: 0,
+                    wiggleSpeed: p.random(0.05, 0.1),
+                    wiggleAmount: p.random(2, 5)
+                });
+            };
+
+            p.mouseReleased = () => {
+                // Stop dragging any jellyfish
+                for (let j of jellyfish) {
+                    j.isDragged = false;
+                }
+            };
+
+            p.mouseMoved = () => {
+                // Check for house hover
+                for (let house of houses) {
+                    const d = p.dist(p.mouseX, p.mouseY, house.x, house.y);
+                    house.hover = d < house.size * 0.8;
+                }
+            };
+
+            p.windowResized = () => {
+                p.resizeCanvas(p.windowWidth, p.windowHeight);
+                createVillage();
+            };
+
+            p.touchStarted = () => {
+                // Prevent default touch behavior
+                return false;
+            };
+        };
+
+        new p5(underwaterSketch);
+    </script>
+
+</body></html>
